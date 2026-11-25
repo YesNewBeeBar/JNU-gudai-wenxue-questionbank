@@ -341,34 +341,93 @@
   }
 
   /* ---------- 错题本 ---------- */
+  // 错题来源分类：同一道题只存一条，src 里记它在哪些练习里错过、各错几次
+  const MISTAKE_SRC = [
+    { key: "exam", name: "模拟考" },
+    { key: "practice", name: "分章练习" },
+    { key: "recite", name: "默写自测" },
+  ];
+
+  // 旧记录没有 src 字段，按模拟考归档；新记录一开始就是空对象，不能再补 exam
+  function srcOf(m) {
+    if (!m.src) return { exam: Math.max(1, m.count || 1) };
+    return m.src;
+  }
+
+  function addMistake(type, id, src) {
+    const k = type + ":" + id;
+    const m = DB.data.mistakes[k] || { type, id, count: 0, ts: 0, src: {} };
+    m.src = srcOf(m);
+    m.src[src] = (m.src[src] || 0) + 1;
+    m.count = (m.count || 0) + 1;
+    m.ts = Date.now();
+    DB.data.mistakes[k] = m;
+    return m;
+  }
+
+  // 结果页勾得分点时用：只要还在错题本里就行，反复勾选不该把次数越加越多
+  function touchMistake(type, id, src) {
+    const k = type + ":" + id;
+    const m = DB.data.mistakes[k] || { type, id, count: 0, ts: 0, src: {} };
+    m.src = srcOf(m);
+    m.src[src] = Math.max(1, m.src[src] || 0);
+    m.count = Math.max(1, m.count || 1);
+    m.ts = Date.now();
+    DB.data.mistakes[k] = m;
+    return m;
+  }
+
+  // 默写题不在 RECITES 里时用 t:篇名 当 id，展示和重做都要能还原篇名
+  function reciteTitleOf(id) {
+    const it = getItem("recite", id);
+    return (it && it.title) || String(id || "").replace(/^t:/, "");
+  }
+
+  function retryRoute(m) {
+    if (m.type === "recite") return "/recite?t=" + encodeURIComponent(reciteTitleOf(m.id));
+    return "/practice?only=" + encodeURIComponent(m.type + ":" + m.id);
+  }
+
   function viewMistakes(root) {
-    const ms = Object.entries(DB.data.mistakes).sort((a, b) => b[1].ts - a[1].ts);
+    const all = Object.entries(DB.data.mistakes).map(([k, m]) => ({ k, m, src: srcOf(m) }));
+    const countOf = (key) => all.filter((x) => (x.src[key] || 0) > 0).length;
+    const summary = MISTAKE_SRC.map((s) => `${s.name} ${countOf(s.key)}`).join(" · ");
+
+    const cardOf = ({ k, m, src }, key) => {
+      const it = getItem(m.type, m.id);
+      return `<div class="card" style="padding:12px">
+        <div class="bar"><span class="badge y">${sectionName(m.type)}</span><span class="tiny">${esc((it && it.ch) || "")} · 错 ${src[key] || 1} 次</span></div>
+        <div style="margin:6px 0 2px">${esc(previewOf(it, m.type, m.id))}</div>
+        <div class="actions"><button class="btn small" data-redo="${esc(k)}">重做</button>
+        <button class="btn small ghost" data-drop="${esc(k)}">已掌握</button></div>
+      </div>`;
+    };
+
     root.innerHTML = `${topBar()}
       <h2 style="font-size:18px;margin:10px 2px">错题本</h2>
-      <p class="muted" style="margin:0 2px 10px">${ms.length} 道。重做后答对可移除。</p>
+      <p class="muted" style="margin:0 2px 10px">${all.length} 道 · ${summary}。重做后答对会自动移出。</p>
       <div class="actions" style="margin:0 2px 10px">
         <button class="btn small primary" id="redoAll">错题重练</button>
         <button class="btn small" id="clearM">清空错题</button>
       </div>
       <div id="mlist">${
-        ms.length
-          ? ms
-              .map(([k, m]) => {
-                const it = getItem(m.type, m.id);
-                return `<div class="card" style="padding:12px">
-                  <div class="bar"><span class="badge y">${sectionName(m.type)}</span><span class="tiny">${esc(it ? (it.ch || "") : "")} · 错 ${m.count || 1} 次</span></div>
-                  <div style="margin:6px 0 2px">${esc(previewOf(it, m.type))}</div>
-                  <div class="actions"><button class="btn small" data-redo="${m.type}:${m.id}">重做</button>
-                  <button class="btn small ghost" data-drop="${k}">已掌握</button></div>
-                </div>`;
-              })
-              .join("")
+        all.length
+          ? MISTAKE_SRC.map(({ key, name }) => {
+              const items = all.filter((x) => (x.src[key] || 0) > 0).sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
+              return `<div class="section"><h2>${name}</h2><div class="rule">${items.length} 道</div></div>${
+                items.length ? items.map((x) => cardOf(x, key)).join("") : `<div class="empty">这一类还没有错题</div>`
+              }`;
+            }).join("")
           : `<div class="empty">干干净净，继续保持。</div>`
       }</div>`;
 
     $("#mlist").addEventListener("click", (e) => {
       const r = e.target.closest("[data-redo]");
-      if (r) return go("/practice?only=" + encodeURIComponent(r.dataset.redo));
+      if (r) {
+        const m = DB.data.mistakes[r.dataset.redo];
+        if (m) go(retryRoute(m));
+        return;
+      }
       const d = e.target.closest("[data-drop]");
       if (d) {
         delete DB.data.mistakes[d.dataset.drop];
@@ -383,17 +442,17 @@
       viewMistakes(root);
     });
     $("#redoAll").addEventListener("click", () => {
-      const ids = ms.map(([k, m]) => m.type + ":" + m.id);
-      if (!ids.length) return toast("没有错题");
+      const ids = all.filter((x) => x.m.type !== "recite").map(({ m }) => m.type + ":" + m.id);
+      if (!ids.length) return toast("没有可重练的错题");
       go("/practice?only=" + encodeURIComponent(ids.join(",")));
     });
   }
 
-  function previewOf(it, type) {
+  function previewOf(it, type, id) {
+    if (type === "recite") return "默写：" + reciteTitleOf(id);
     if (!it) return "（题目已从题库移除）";
     if (type === "term") return it.term;
     if (type === "fill") return it.stem.replace(/＿+/g, "＿＿");
-    if (type === "recite") return "默写：" + it.title;
     if (type === "short") return it.q;
     if (type === "essay") return it.title;
     return "";
@@ -514,7 +573,7 @@
   /* ---------- 导出 ---------- */
   window.APP = {
     DB, INDEX, getItem, norm, esc, $, $$, toast, go, render, shuffle, sample, uniqBy, chapterList, buildIndex,
-    sectionName, fmtDate, VIEWS, PUNCT_RE, topBar, goBack,
+    sectionName, fmtDate, VIEWS, PUNCT_RE, topBar, goBack, addMistake, touchMistake, MISTAKE_SRC,
   };
   window.VIEWS = VIEWS;
 

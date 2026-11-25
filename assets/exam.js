@@ -537,13 +537,7 @@
   function recordMistakes() {
     const p = session.paper;
     const r = session.result;
-    const put = (type, id) => {
-      const k = type + ":" + id;
-      const m = DB.data.mistakes[k] || { type, id, count: 0, ts: 0 };
-      m.count = (m.count || 0) + 1;
-      m.ts = Date.now();
-      DB.data.mistakes[k] = m;
-    };
+    const put = (type, id) => A.addMistake(type, id, "exam");
     p.fills.forEach((it) => {
       const vals = session.ans.fills[it.id] || [];
       const bad = it.blanks.some((b, k) => norm(vals[k] || "") !== norm(b.a));
@@ -823,13 +817,7 @@ ${answer}
   function syncMistakes() {
     const p = session.paper;
     const r = session.result;
-    const put = (type, id) => {
-      const k = type + ":" + id;
-      const m = DB.data.mistakes[k] || { type, id, count: 0, ts: 0 };
-      m.count = Math.max(1, m.count || 1);
-      m.ts = Date.now();
-      DB.data.mistakes[k] = m;
-    };
+    const put = (type, id) => A.touchMistake(type, id, "exam");
     p.terms.forEach((it) => {
       const s = r.details["term:" + it.id] || 0;
       if (s >= 3 * 0.6) delete DB.data.mistakes["term:" + it.id];
@@ -980,15 +968,12 @@ ${answer}
     });
   }
 
-  function markMistake(type, id, good) {
+  function markMistake(type, id, good, src) {
     const k = type + ":" + id;
     if (good) {
       delete DB.data.mistakes[k];
     } else {
-      const m = DB.data.mistakes[k] || { type, id, count: 0, ts: 0 };
-      m.count = (m.count || 0) + 1;
-      m.ts = Date.now();
-      DB.data.mistakes[k] = m;
+      A.addMistake(type, id, src || "practice");
     }
     DB.save();
   }
@@ -1006,7 +991,7 @@ ${answer}
       });
       fb.innerHTML = `<div class="fb ${all ? "ok" : "bad"}"><b>${all ? "全对" : "有错"}</b><br>答案：${it.blanks
         .map((b) => esc(b.a)).join(" ／ ")}${it.note ? `<br><span class="tiny">出处：${esc(it.note)}</span>` : ""}</div>`;
-      markMistake(type, it.id, all);
+      markMistake(type, it.id, all, "practice");
       return;
     }
     const pts = (it.points || []).map((p) => `<li><span>${esc(p.t)}</span><span class="w">${p.w} 分</span></li>`).join("");
@@ -1017,7 +1002,7 @@ ${answer}
     fb.querySelectorAll("[data-mark]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const good = btn.dataset.mark === "ok";
-        markMistake(type, it.id, good);
+        markMistake(type, it.id, good, "practice");
         fb.querySelectorAll("[data-mark]").forEach((b) => (b.disabled = true));
         toast(good ? "已移出错题" : "已记入错题本");
       });
@@ -1025,6 +1010,12 @@ ${answer}
   }
 
   /* ================= 默写自测 ================= */
+  // 篇名对应 RECITES 里的 id；RECITES 只收了必背篇目，其余用 t:篇名 当 id
+  function reciteIdOf(title) {
+    const rc = (window.RECITES || []).find((x) => x.title === title);
+    return rc ? rc.id : "t:" + title;
+  }
+
   function viewRecite(root, qs) {
     const title = qs.get("t") || "";
     const it = (window.TEXTS || []).find((x) => x.title === title);
@@ -1037,7 +1028,11 @@ ${answer}
     $("#rcheck").addEventListener("click", () => {
       const g = gradeRecite($("#rt").value, it.text);
       const diff = g.ops.map(([op, ch]) => (op === "=" ? `<span class="ok">${esc(ch)}</span>` : op === "-" ? `<span class="wrong">${esc(ch)}</span>` : `<span class="miss">${esc(ch)}</span>`)).join("");
-      $("#rfb").innerHTML = `<div class="card"><h3>得分 ${g.score} / 10</h3><p class="tiny">错漏 ${g.errors} 字</p><div class="diff">${diff}</div>
+      const key = reciteIdOf(title);
+      const existed = !!DB.data.mistakes["recite:" + key];
+      markMistake("recite", key, g.errors === 0, "recite");
+      const tip = g.errors === 0 ? (existed ? "全对，已从错题本移出" : "全对") : "已记入错题本 · 默写自测";
+      $("#rfb").innerHTML = `<div class="card"><h3>得分 ${g.score} / 10</h3><p class="tiny">错漏 ${g.errors} 字 · ${tip}</p><div class="diff">${diff}</div>
         <details><summary>原文</summary><div class="answer">${esc(it.text)}</div></details></div>`;
     });
     $("#rshow").addEventListener("click", () => {

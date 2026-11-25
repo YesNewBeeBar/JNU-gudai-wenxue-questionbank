@@ -1,5 +1,5 @@
 /* 离线缓存：首次打开后，断网也能做题 */
-const CACHE = "gdwx-v2";
+const CACHE = "gdwx-v3";
 const ASSETS = [
   "./",
   "./index.html",
