@@ -128,12 +128,42 @@
   const VIEWS = {};
   let currentView = "";
 
+  // 返回栈：记录走过的路由，返回键优先回上一页；栈里没有目标时用各页声明的 fallback
+  const NAV_STACK = [];
+  let pendingBack = null;
+
+  function routeOf() {
+    const raw = (location.hash || "#/home").replace(/^#/, "");
+    const [path, qs] = raw.split("?");
+    return (path || "/home") + (qs ? "?" + qs : "");
+  }
+
   function go(hash) {
     if (location.hash === "#" + hash) render();
     else location.hash = hash;
   }
 
+  // fixed=true 时忽略返回栈，直接回 fallback（交卷后的成绩单回考试页只会被重定向回来）
+  function goBack(fallback, fixed) {
+    let target = "";
+    if (!fixed) {
+      if (NAV_STACK[NAV_STACK.length - 1] === routeOf()) NAV_STACK.pop();
+      target = NAV_STACK[NAV_STACK.length - 1] || "";
+    }
+    if (!target) target = fallback || "/home";
+    pendingBack = target; // 返回本身不再入栈，否则连按两次会原地打转
+    go(target);
+  }
+
   function render() {
+    const route = routeOf();
+    if (pendingBack !== null && route === pendingBack) pendingBack = null;
+    else if (NAV_STACK[NAV_STACK.length - 2] === route) NAV_STACK.pop(); // 浏览器后退键
+    else if (NAV_STACK[NAV_STACK.length - 1] !== route) {
+      NAV_STACK.push(route);
+      if (NAV_STACK.length > 60) NAV_STACK.shift();
+    }
+
     const raw = (location.hash || "#/home").replace(/^#/, "");
     const [path, qs] = raw.split("?");
     const name = (path || "/home").replace(/^\//, "") || "home";
@@ -154,15 +184,28 @@
     window.scrollTo(0, 0);
   }
 
-  /* ---------- 首页 ---------- */
-  function topBar(title) {
+  /* ---------- 顶栏 ---------- */
+  // back 传路由显示返回键，传 null 表示不显示（首页）；fixed 见 goBack；confirm 为点击时的确认文案
+  function topBar(o) {
+    const opt = o || {};
+    const back = opt.back === undefined ? "/home" : opt.back;
+    const title = opt.title || "中国古代文学史（一）";
+    const sub = opt.sub === undefined ? "期末题库 · 复习使用" : opt.sub;
+    const right = opt.right === undefined ? `<button class="iconbtn" data-nav="/settings">设置</button>` : opt.right;
+    const backBtn = back
+      ? `<button class="iconbtn back" data-back="${esc(back)}"${opt.fixed ? ' data-back-fixed="1"' : ""}${
+          opt.confirm ? ` data-back-confirm="${esc(opt.confirm)}"` : ""
+        } aria-label="返回">← 返回</button>`
+      : "";
     return `<div class="top">
-      <div class="brand">中国古代文学史（一）<small>期末题库 · 暨南大学</small></div>
+      ${backBtn}
+      <div class="brand">${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ""}</div>
       <div class="sp"></div>
-      <button class="iconbtn" data-nav="/settings">设置</button>
+      ${right}
     </div>`;
   }
 
+  /* ---------- 首页 ---------- */
   function viewHome(root) {
     const counts = {
       term: (window.TERMS || []).length,
@@ -176,9 +219,9 @@
     const wrongN = Object.keys(DB.data.mistakes).length;
     const best = h.reduce((m, x) => Math.max(m, x.total || 0), 0);
 
-    root.innerHTML = `${topBar()}
+    root.innerHTML = `${topBar({ back: null })}
     <div class="hero">
-      <h1>考前一百天，先把题做旧。</h1>
+      <h1>考前复习</h1>
       <p>按 2026 期末题型组卷：名词解释 5×3、填空 30 空×0.5、默写 3 选 1、简答 2×10、分析论述 2×20。</p>
       <div class="grid">
         <div class="tile wide" data-nav="/exam">
@@ -452,8 +495,15 @@
     });
   }
 
-  /* ---------- 事件委托：导航 ---------- */
+  /* ---------- 事件委托：导航与返回 ---------- */
   document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-back]");
+    if (b) {
+      if (b.dataset.backConfirm && !confirm(b.dataset.backConfirm)) return;
+      e.preventDefault();
+      goBack(b.dataset.back, b.dataset.backFixed === "1");
+      return;
+    }
     const n = e.target.closest("[data-nav]");
     if (n) {
       e.preventDefault();
@@ -464,7 +514,7 @@
   /* ---------- 导出 ---------- */
   window.APP = {
     DB, INDEX, getItem, norm, esc, $, $$, toast, go, render, shuffle, sample, uniqBy, chapterList, buildIndex,
-    sectionName, fmtDate, VIEWS, PUNCT_RE,
+    sectionName, fmtDate, VIEWS, PUNCT_RE, topBar, goBack,
   };
   window.VIEWS = VIEWS;
 
@@ -477,5 +527,7 @@
   DB.load();
   buildIndex();
   window.addEventListener("hashchange", render);
-  render();
+  // exam.js 排在本文件后面，等它的 VIEWS 注册完再首屏渲染，否则直接打开 #/exam 这类深链接会落到首页
+  if (document.readyState === "complete") render();
+  else window.addEventListener("load", render, { once: true });
 })();

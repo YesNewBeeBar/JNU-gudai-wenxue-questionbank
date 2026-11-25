@@ -146,8 +146,8 @@
     root.innerHTML = `
     <div class="exambar">
       <div class="row">
-        <div style="font-size:13px;letter-spacing:.06em">中国古代文学史（一）· 模拟卷</div>
-        <div class="sp" style="flex:1"></div>
+        <button class="iconbtn back" data-back="/home" data-back-confirm="离开考试？已填的答案会保留，回来可以接着答，计时不会停。">← 返回</button>
+        <div class="bartitle" style="font-size:13px;letter-spacing:.06em">中国古代文学史（一）· 模拟卷</div>
         <div class="timer" id="timer">--:--</div>
       </div>
       <div class="progress"><i id="pbar"></i></div>
@@ -574,7 +574,8 @@
   function viewResult(root) {
     if (!session) loadSession();
     if (!session || !session.result) {
-      root.innerHTML = `<div class="empty">没有可查看的成绩。<br><button class="btn" data-nav="/home">回首页</button></div>`;
+      root.innerHTML = `${A.topBar({ title: "成绩单", sub: "", back: "/home", fixed: true })}
+        <div class="empty">没有可查看的成绩。<br><button class="btn" data-nav="/home">回首页</button></div>`;
       return;
     }
     const p = session.paper;
@@ -582,8 +583,8 @@
     const grade = r.total >= 90 ? "稳" : r.total >= 80 ? "不错" : r.total >= 60 ? "要补" : "危险";
     root.innerHTML = `
       <div class="exambar"><div class="row">
-        <div style="font-size:13px">成绩单</div><div style="flex:1"></div>
-        <button class="btn small ghost" data-nav="/home">首页</button>
+        <button class="iconbtn back" data-back="/home" data-back-fixed="1">← 返回</button>
+        <div class="bartitle" style="font-size:13px">成绩单</div>
       </div></div>
       <div class="card">
         <div class="score"><b>${r.total}</b><span> / 100 · ${grade}</span></div>
@@ -899,7 +900,7 @@ ${answer}
     const ch = qs.get("ch") || "";
     const type = qs.get("type") || "";
     root.innerHTML = `
-      <div class="top"><div class="brand">分章练习<small>选范围，立即批改</small></div><div style="flex:1"></div><button class="iconbtn" data-nav="/home">返回</button></div>
+      ${A.topBar({ title: "分章练习", sub: "选范围，立即批改" })}
       <div class="card">
         <h3>范围</h3>
         <select id="pch" style="width:100%"><option value="">全部章节</option>${chs.map((c) => `<option ${c === ch ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
@@ -934,7 +935,8 @@ ${answer}
 
   function renderPracticeRun(root) {
     if (practice.idx >= practice.list.length) {
-      root.innerHTML = `<div class="card" style="text-align:center">
+      root.innerHTML = `${A.topBar({ title: "这一组练完了", sub: "", back: "/practice", fixed: true })}
+        <div class="card" style="text-align:center">
         <h3>这一组练完了</h3><p class="muted">共 ${practice.list.length} 题</p>
         <div class="actions" style="justify-content:center"><button class="btn primary" data-nav="/practice">再来一组</button><button class="btn" data-nav="/mistakes">看错题</button></div></div>`;
       return;
@@ -959,7 +961,13 @@ ${answer}
       body = `<div class="stem">${esc(it.title)}</div><p class="muted" style="font-size:13px">练习模式下只练论述部分；标点请到模拟卷里练。</p><textarea class="ans" id="pans" placeholder="500 字"></textarea>`;
     }
     root.innerHTML = `
-      <div class="top"><div class="brand">练习 ${practice.idx + 1}/${practice.list.length}<small>${esc(it.ch || "")}</small></div><div style="flex:1"></div><button class="iconbtn" data-nav="/home">退出</button></div>
+    ${A.topBar({
+      title: `练习 ${practice.idx + 1}/${practice.list.length}`,
+      sub: it.ch || "",
+      back: "/practice",
+      fixed: true,
+      confirm: "退出练习？这道题的作答不会保存。",
+    })}
       <div class="q">${body}</div>
       <div class="actions"><button class="btn primary" id="pcheck">对照答案</button><button class="btn" id="pnext">下一题</button></div>
       <div id="pfb"></div>`;
@@ -1021,7 +1029,7 @@ ${answer}
     const title = qs.get("t") || "";
     const it = (window.TEXTS || []).find((x) => x.title === title);
     root.innerHTML = `
-      <div class="top"><div class="brand">默写自测<small>${esc(title)}</small></div><div style="flex:1"></div><button class="iconbtn" data-nav="/texts">返回</button></div>
+    ${A.topBar({ title: "默写自测", sub: title, back: "/texts" })}
       ${it ? `<div class="q"><textarea class="ans" id="rt" placeholder="默写全文或选段" style="min-height:200px"></textarea></div>
       <div class="actions"><button class="btn primary" id="rcheck">提交批改</button><button class="btn" id="rshow">直接看原文</button></div>
       <div id="rfb"></div>` : `<div class="empty">没有找到这篇</div>`}`;
