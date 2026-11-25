@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>中国古代文学史（一）· 题库（单文件版）</title>
 <meta name="theme-color" content="#f6f1e6">
+<meta name="color-scheme" content="light">
 <meta name="description" content="中国古代文学史（一）期末模拟题库：按题型组卷、自动判分、错题本、背诵篇目。">
 <style>
 :root{
@@ -23,6 +24,12 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
+/* 这套配色只有浅色版。声明 only light 让手机浏览器/微信的自动深色别强行反色，
+   否则输入框的文字会被刷成白色，白底上就看不见打进去的字 */
+:root{color-scheme:light;color-scheme:only light}
+/* 表单控件默认不继承 color，深色渲染下文字颜色会跟背景撞在一起，这里全部显式给定 */
+input,textarea,select{color:var(--ink);-webkit-text-fill-color:var(--ink)}
+input::placeholder,textarea::placeholder{color:#a1998b;-webkit-text-fill-color:#a1998b;opacity:1}
 body{
   background:var(--paper);
   color:var(--ink);
@@ -95,6 +102,7 @@ input.blank:focus{background:#fff6f2}
 textarea.ans{
   width:100%;min-height:90px;border:1px solid var(--line);border-radius:10px;background:#fff;
   font:inherit;line-height:1.9;padding:10px;resize:vertical;outline:none;
+  color:var(--ink);-webkit-text-fill-color:var(--ink);caret-color:var(--red);
 }
 textarea.ans:focus{border-color:var(--red)}
 textarea.ans.short{min-height:56px}
