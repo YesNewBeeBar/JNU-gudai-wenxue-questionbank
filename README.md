@@ -1,6 +1,8 @@
 # 中国古代文学史（一）· 期末题库
 
-按 2026 年期末考试题型做的网页题库：**模拟考 → 自动判分 → 对答案 → 记错题**。纯静态页面，不需要服务器，可以上传到 GitHub Pages 用手机随时刷。
+按 2026 年期末考试题型做的网页题库：**模拟考 → 自动判分 → 对答案 → 记错题**。纯静态页面，不需要服务器，已经部署在 GitHub Pages 上，手机点开就能刷。
+
+**在线版**：<https://yesnewbeebar.github.io/JNU-gudai-wenxue-questionbank/>
 
 - 名词解释 5 题 × 3 分 = 15 分
 - 填空题 30 空 × 0.5 分 = 15 分
@@ -47,11 +49,11 @@ python3 -m http.server 8000
 
 ## 部署到 GitHub Pages
 
-完整步骤见 [部署说明.md](部署说明.md)。最省事的做法：
+已部署：<https://yesnewbeebar.github.io/JNU-gudai-wenxue-questionbank/>，走 `main` 分支根目录，推到 `main` 就自动发布。
 
-1. 新建仓库，把 `单文件版.html` 改名为 `index.html` 上传；
-2. Settings → Pages → Source 选 `main` 分支 `/root`，保存；
-3. 等一两分钟，访问 `https://你的用户名.github.io/仓库名/`。
+改完题库 `git push` 后等 1～2 分钟线上就更新。浏览器有 Service Worker 缓存，如果手机上还是旧题，把 `sw.js` 里的 `CACHE = "gdwx-v1"` 版本号加一。
+
+从零建站的完整步骤见 [部署说明.md](部署说明.md)；每次 push 会跑一遍 `node tools/check.js` 做数据自检（`.github/workflows/check.yml`）。
 
 ## 目录
 
