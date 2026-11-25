@@ -1,0 +1,17 @@
+{
+  "name": "中国古代文学史（一）· 题库",
+  "short_name": "文学史题库",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f6f1e6",
+  "theme_color": "#f6f1e6",
+  "description": "期末模拟考、自动判分、错题本、背诵篇目",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
